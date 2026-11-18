@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, parseLocalDate, toYMD } from '@/lib/dates';
@@ -14,13 +14,6 @@ type Props = {
 export function DateField({ label, value, onChange }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
-
-  const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
-    setOpen(false);
-    if (event.type === 'set' && selected) {
-      onChange(toYMD(selected));
-    }
-  };
 
   return (
     <View style={styles.wrap}>
@@ -41,7 +34,11 @@ export function DateField({ label, value, onChange }: Props) {
           value={parseLocalDate(value)}
           mode="date"
           display="default"
-          onChange={handleChange}
+          onValueChange={(_event, selected) => {
+            setOpen(false);
+            onChange(toYMD(selected));
+          }}
+          onDismiss={() => setOpen(false)}
         />
       ) : null}
     </View>

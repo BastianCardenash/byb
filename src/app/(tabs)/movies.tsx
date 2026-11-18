@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -106,10 +106,10 @@ export default function MoviesScreen() {
     [remove],
   );
 
-  const handlePickWatchedDate = (event: DateTimePickerEvent, selected?: Date) => {
+  const handlePickWatchedDate = (selected: Date) => {
     const targetId = markingId;
     setMarkingId(null);
-    if (event.type === 'set' && selected && targetId !== null) {
+    if (targetId !== null) {
       updateMovie.mutate({
         id: targetId,
         values: { watched_on: toYMD(selected) },
@@ -205,7 +205,8 @@ export default function MoviesScreen() {
           value={new Date()}
           mode="date"
           display="default"
-          onChange={handlePickWatchedDate}
+          onValueChange={(_event, selected) => handlePickWatchedDate(selected)}
+          onDismiss={() => setMarkingId(null)}
         />
       ) : null}
 
