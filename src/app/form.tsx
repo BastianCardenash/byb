@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
@@ -14,7 +14,7 @@ import {
   type Movie,
   type Outing,
 } from '@/lib/db';
-import { colors, font, radius } from '@/lib/theme';
+import { font, radius, useTheme, type ThemeColors } from '@/lib/theme';
 
 type FormType = 'outing' | 'movie' | 'meal';
 
@@ -25,6 +25,8 @@ const TITLES: Record<FormType, { create: string; edit: string }> = {
 };
 
 export default function FormModal() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{
     type?: FormType;
     id?: string;
@@ -78,10 +80,12 @@ export default function FormModal() {
         ? (cachedMealDetail?.recipe ?? '')
         : '';
 
-  const [title, setTitle] = useState(initialTitle);
+  const titleRef = useRef(initialTitle);
+  const extraRef = useRef(initialExtra);
+  const extraDirtyRef = useRef(false);
+
   const [date, setDate] = useState(initialDate);
-  const [extra, setExtra] = useState(initialExtra);
-  const [extraDirty, setExtraDirty] = useState(false);
+  const [loadedRecipe, setLoadedRecipe] = useState<string | null>(null);
   const [watched, setWatched] = useState(
     type === 'movie'
       ? isEdit
@@ -95,12 +99,15 @@ export default function FormModal() {
     if (
       type === 'meal' &&
       isEdit &&
-      !extraDirty &&
+      !extraDirtyRef.current &&
+      loadedRecipe === null &&
       mealDetailQuery.data?.recipe !== undefined
     ) {
-      setExtra(mealDetailQuery.data.recipe ?? '');
+      const nextRecipe = mealDetailQuery.data.recipe ?? '';
+      extraRef.current = nextRecipe;
+      setLoadedRecipe(nextRecipe);
     }
-  }, [type, isEdit, extraDirty, mealDetailQuery.data?.recipe]);
+  }, [type, isEdit, loadedRecipe, mealDetailQuery.data?.recipe]);
 
   const table = type === 'outing' ? 'outings' : type === 'movie' ? 'movies' : 'meals';
   const save = useMutate(table, isEdit ? 'update' : 'insert');
@@ -109,14 +116,14 @@ export default function FormModal() {
     type === 'meal' && isEdit && !cachedMealDetail && mealDetailQuery.isPending;
 
   const handleSubmit = async () => {
-    const cleanTitle = title.trim();
+    const cleanTitle = titleRef.current.trim();
     if (!cleanTitle) {
       setError('El título es obligatorio.');
       return;
     }
 
     setError('');
-    const cleanExtra = extra.trim() || null;
+    const cleanExtra = extraRef.current.trim() || null;
 
     if (type === 'outing') {
       const values = { title: cleanTitle, happened_on: date, description: cleanExtra };
@@ -152,8 +159,10 @@ export default function FormModal() {
 
       <Input
         label="Título"
-        value={title}
-        onChangeText={setTitle}
+        defaultValue={initialTitle}
+        onChangeText={(text) => {
+          titleRef.current = text;
+        }}
         placeholder={
           type === 'outing'
             ? 'Ej. Café en Lastarria'
@@ -203,10 +212,10 @@ export default function FormModal() {
       {type === 'outing' ? (
         <Input
           label="Descripción (opcional)"
-          value={extra}
+          defaultValue={initialExtra}
           onChangeText={(text) => {
-            setExtra(text);
-            setExtraDirty(true);
+            extraRef.current = text;
+            extraDirtyRef.current = true;
           }}
           placeholder="Cómo estuvo, qué hicieron..."
           multiline
@@ -216,11 +225,12 @@ export default function FormModal() {
 
       {type === 'meal' ? (
         <Input
+          key={loadedRecipe !== null ? 'loaded' : 'initial'}
           label="Receta (opcional)"
-          value={extra}
+          defaultValue={loadedRecipe ?? initialExtra}
           onChangeText={(text) => {
-            setExtra(text);
-            setExtraDirty(true);
+            extraRef.current = text;
+            extraDirtyRef.current = true;
           }}
           placeholder="Ingredientes y pasos..."
           multiline
@@ -242,7 +252,8 @@ export default function FormModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     padding: 20,
     gap: 16,

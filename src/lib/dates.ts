@@ -1,4 +1,4 @@
-const RELATIONSHIP_START = '2026-11-20';
+const RELATIONSHIP_START = '2026-11-14';
 const MS_PER_DAY = 86_400_000;
 
 const dateFormatter = new Intl.DateTimeFormat('es-CL', {
@@ -23,8 +23,19 @@ export function todayYMD(): string {
   return toYMD(new Date());
 }
 
+const monthFormatter = new Intl.DateTimeFormat('es-CL', { month: 'short' });
+
 export function formatDate(ymd: string): string {
   return dateFormatter.format(parseLocalDate(ymd));
+}
+
+export function formatDateParts(ymd: string): { day: string; monthYear: string } {
+  const date = parseLocalDate(ymd);
+  const month = monthFormatter.format(date).replace(/\.$/, '').toLowerCase();
+  return {
+    day: String(date.getDate()),
+    monthYear: `${month} ${date.getFullYear()}`,
+  };
 }
 
 export function getRelationshipCounter(now = new Date()) {
@@ -37,16 +48,25 @@ export function getRelationshipCounter(now = new Date()) {
     return {
       started: false,
       days: remaining,
-      headline: remaining === 1 ? 'Falta 1 día' : `Faltan ${remaining} días`,
-      subtitle: 'para el 20 de noviembre',
+      months: 0,
+      years: 0,
     };
   }
 
-  const together = diff + 1;
+  const days = diff + 1;
+  let months =
+    (today.getFullYear() - start.getFullYear()) * 12 +
+    (today.getMonth() - start.getMonth());
+  if (today.getDate() < start.getDate()) {
+    months -= 1;
+  }
+  months = Math.max(0, months);
+  const years = Math.floor(months / 12);
+
   return {
     started: true,
-    days: together,
-    headline: together === 1 ? '1 día juntos' : `${together} días juntos`,
-    subtitle: 'desde el 20 de noviembre de 2026',
+    days,
+    months,
+    years,
   };
 }

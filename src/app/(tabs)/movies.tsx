@@ -7,9 +7,10 @@ import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
 import { Hearts } from '@/components/Hearts';
+import { SkeletonList } from '@/components/SkeletonList';
 import { formatDate, toYMD } from '@/lib/dates';
 import { confirmDelete, useList, useMutate, type Movie } from '@/lib/db';
-import { colors, font, radius } from '@/lib/theme';
+import { font, radius, useTheme, type ThemeColors } from '@/lib/theme';
 
 type TabKey = 'watched' | 'wishlist';
 
@@ -22,6 +23,8 @@ const MovieRow = memo(function MovieRow({
   onDelete: (item: Movie) => void;
   onMarkWatched: (id: number) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isWatched = item.watched_on !== null;
   const reviews = item.movie_reviews ?? [];
   const avg =
@@ -31,29 +34,20 @@ const MovieRow = memo(function MovieRow({
 
   return (
     <Card
-      onPress={
-        isWatched
-          ? () => router.push({ pathname: '/movie/[id]', params: { id: String(item.id) } })
-          : undefined
+      onPress={() =>
+        router.push(
+          isWatched
+            ? { pathname: '/movie/[id]', params: { id: String(item.id) } }
+            : { pathname: '/form', params: { type: 'movie', id: String(item.id) } },
+        )
       }
       onLongPress={() => onDelete(item)}
     >
-      <View style={styles.rowHeader}>
-        <View style={styles.titleWrap}>
-          <Text style={styles.title}>{item.title}</Text>
-          {item.watched_on ? (
-            <Text style={styles.date}>{formatDate(item.watched_on)}</Text>
-          ) : null}
-        </View>
-        <Pressable
-          onPress={() =>
-            router.push({ pathname: '/form', params: { type: 'movie', id: String(item.id) } })
-          }
-          hitSlop={10}
-          style={styles.editBtn}
-        >
-          <Ionicons name="pencil" size={18} color={colors.muted} />
-        </Pressable>
+      <View style={styles.titleWrap}>
+        <Text style={styles.title}>{item.title}</Text>
+        {item.watched_on ? (
+          <Text style={styles.date}>{formatDate(item.watched_on)}</Text>
+        ) : null}
       </View>
 
       {isWatched ? (
@@ -85,6 +79,8 @@ const MovieRow = memo(function MovieRow({
 });
 
 export default function MoviesScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [tab, setTab] = useState<TabKey>('watched');
   const [markingId, setMarkingId] = useState<number | null>(null);
 
@@ -92,11 +88,15 @@ export default function MoviesScreen() {
   const remove = useMutate('movies', 'delete');
   const updateMovie = useMutate('movies', 'update');
 
-  const items = useMemo(() => {
+  const { watchedCount, wishlistCount, items } = useMemo(() => {
     const all = data ?? [];
-    return tab === 'watched'
-      ? all.filter((m) => m.watched_on !== null)
-      : all.filter((m) => m.watched_on === null);
+    const watched = all.filter((m) => m.watched_on !== null);
+    const wishlist = all.filter((m) => m.watched_on === null);
+    return {
+      watchedCount: watched.length,
+      wishlistCount: wishlist.length,
+      items: tab === 'watched' ? watched : wishlist,
+    };
   }, [data, tab]);
 
   const handleDelete = useCallback(
@@ -119,6 +119,29 @@ export default function MoviesScreen() {
 
   return (
     <View style={styles.screen}>
+      {!isPending ? (
+        <View style={styles.topSection}>
+          <Card style={styles.summaryCard}>
+            <View style={styles.summaryIcon}>
+              <Ionicons name="film" size={26} color={colors.primary} />
+            </View>
+            <View style={styles.summaryStats}>
+              <View style={styles.statCol}>
+                <Text style={styles.statValue}>{watchedCount}</Text>
+                <Text style={styles.statLabel}>
+                  {watchedCount === 1 ? 'Vista' : 'Vistas'}
+                </Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statCol}>
+                <Text style={styles.statValue}>{wishlistCount}</Text>
+                <Text style={styles.statLabel}>Por ver</Text>
+              </View>
+            </View>
+          </Card>
+        </View>
+      ) : null}
+
       <View style={styles.segmentWrap}>
         {(['watched', 'wishlist'] as const).map((key) => {
           const active = tab === key;
@@ -150,6 +173,13 @@ export default function MoviesScreen() {
             colors={[colors.primary]}
           />
         }
+        ListHeaderComponent={
+          !isPending && items.length > 0 ? (
+            <Text style={styles.sectionTitle}>
+              {tab === 'watched' ? 'Películas vistas' : 'Lista por ver'}
+            </Text>
+          ) : undefined
+        }
         renderItem={({ item }) => (
           <MovieRow
             item={item}
@@ -158,7 +188,9 @@ export default function MoviesScreen() {
           />
         )}
         ListEmptyComponent={
-          isPending ? undefined : (
+          isPending ? (
+            <SkeletonList variant="movies" />
+          ) : (
             <EmptyState
               icon="film-outline"
               title={tab === 'watched' ? 'No hay películas vistas' : 'Tu wishlist está vacía'}
@@ -189,9 +221,59 @@ export default function MoviesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   screen: {
     flex: 1,
+  },
+  topSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  summaryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryStats: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statValue: {
+    fontFamily: font.bold,
+    fontSize: 22,
+    color: colors.text,
+  },
+  statLabel: {
+    fontFamily: font.regular,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: colors.border,
+  },
+  sectionTitle: {
+    fontFamily: font.semibold,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 4,
   },
   segmentWrap: {
     flexDirection: 'row',
@@ -224,14 +306,7 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
     gap: 12,
   },
-  rowHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   titleWrap: {
-    flex: 1,
     gap: 2,
   },
   title: {
@@ -243,9 +318,6 @@ const styles = StyleSheet.create({
     fontFamily: font.regular,
     fontSize: 13,
     color: colors.muted,
-  },
-  editBtn: {
-    padding: 4,
   },
   footerRow: {
     marginTop: 10,

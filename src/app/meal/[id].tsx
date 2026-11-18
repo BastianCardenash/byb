@@ -1,15 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { formatDate } from '@/lib/dates';
 import { confirmDelete, useItem, useMutate } from '@/lib/db';
-import { colors, font } from '@/lib/theme';
+import { font, useTheme, type ThemeColors } from '@/lib/theme';
 
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const mealId = Number(id);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { data: meal, isPending, isPlaceholderData } = useItem('meals', mealId);
   const removeMeal = useMutate('meals', 'delete');
 
@@ -31,21 +33,7 @@ export default function MealDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen
-        options={{
-          title: meal.title,
-          headerRight: () => (
-            <Pressable
-              onPress={() =>
-                router.push({ pathname: '/form', params: { type: 'meal', id: String(meal.id) } })
-              }
-              hitSlop={10}
-            >
-              <Ionicons name="pencil" size={20} color={colors.text} />
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ title: meal.title }} />
 
       <Card style={styles.section}>
         <Text style={styles.title}>{meal.title}</Text>
@@ -64,6 +52,14 @@ export default function MealDetailScreen() {
       </Card>
 
       <Button
+        title="Editar comida"
+        variant="soft"
+        onPress={() =>
+          router.push({ pathname: '/form', params: { type: 'meal', id: String(meal.id) } })
+        }
+      />
+
+      <Button
         title="Borrar comida"
         variant="outline"
         onPress={() =>
@@ -78,7 +74,8 @@ export default function MealDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     padding: 16,
     gap: 14,

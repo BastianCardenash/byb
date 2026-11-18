@@ -3,7 +3,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, parseLocalDate, toYMD } from '@/lib/dates';
-import { colors, font, radius } from '@/lib/theme';
+import { font, radius, useTheme } from '@/lib/theme';
 
 type Props = {
   label?: string;
@@ -12,6 +12,7 @@ type Props = {
 };
 
 export function DateField({ label, value, onChange }: Props) {
+  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
 
   const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
@@ -23,12 +24,16 @@ export function DateField({ label, value, onChange }: Props) {
 
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.text }]}>{label}</Text> : null}
       <Pressable
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.field, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.field,
+          { backgroundColor: colors.card, borderColor: colors.border },
+          pressed && styles.pressed,
+        ]}
       >
-        <Text style={styles.value}>{formatDate(value)}</Text>
+        <Text style={[styles.value, { color: colors.text }]}>{formatDate(value)}</Text>
         <Ionicons name="calendar-outline" size={18} color={colors.muted} />
       </Pressable>
       {open ? (
@@ -50,16 +55,13 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: font.semibold,
     fontSize: 13,
-    color: colors.text,
   },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
     borderRadius: radius.input,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
@@ -69,6 +71,5 @@ const styles = StyleSheet.create({
   value: {
     fontFamily: font.regular,
     fontSize: 15,
-    color: colors.text,
   },
 });

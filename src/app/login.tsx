@@ -1,21 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { supabase } from '@/lib/supabase';
-import { colors, font } from '@/lib/theme';
+import { font, useTheme, type ThemeColors } from '@/lib/theme';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const emailRef = useRef('');
+  const passwordRef = useRef('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = emailRef.current.trim();
+    const password = passwordRef.current;
     if (!cleanEmail || !password) {
       setError('Ingresa tu correo y contraseña.');
       return;
@@ -51,8 +54,10 @@ export default function LoginScreen() {
         <Card style={styles.card}>
           <Input
             label="Correo"
-            value={email}
-            onChangeText={setEmail}
+            defaultValue=""
+            onChangeText={(text) => {
+              emailRef.current = text;
+            }}
             placeholder="tu@correo.com"
             autoCapitalize="none"
             keyboardType="email-address"
@@ -60,8 +65,10 @@ export default function LoginScreen() {
           />
           <Input
             label="Contraseña"
-            value={password}
-            onChangeText={setPassword}
+            defaultValue=""
+            onChangeText={(text) => {
+              passwordRef.current = text;
+            }}
             placeholder="••••••••"
             secureTextEntry
             autoComplete="password"
@@ -74,7 +81,8 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bg,

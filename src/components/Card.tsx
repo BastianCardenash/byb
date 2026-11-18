@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius } from '@/lib/theme';
+import { radius, useTheme } from '@/lib/theme';
 
 type Props = {
   children: React.ReactNode;
@@ -9,33 +9,28 @@ type Props = {
 };
 
 export function Card({ children, onPress, onLongPress, style }: Props) {
+  const { colors } = useTheme();
+  const themeStyle = { backgroundColor: colors.card };
+
   if (onPress || onLongPress) {
     return (
       <Pressable
         onPress={onPress}
         onLongPress={onLongPress}
-        style={({ pressed }) => [styles.card, pressed && styles.pressed, style]}
+        style={({ pressed }) => [styles.card, themeStyle, pressed && styles.pressed, style]}
       >
         {children}
       </Pressable>
     );
   }
 
-  return <View style={[styles.card, style]}>{children}</View>;
+  return <View style={[styles.card, themeStyle, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
     borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 16,
-    elevation: 2,
-    shadowColor: colors.text,
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
   },
   pressed: {
     opacity: 0.9,

@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Hearts } from '@/components/Hearts';
@@ -10,12 +9,14 @@ import { useAuth } from '@/lib/auth';
 import { COUPLE_MEMBERS } from '@/lib/couple';
 import { formatDate } from '@/lib/dates';
 import { confirmDelete, useList, useMutate } from '@/lib/db';
-import { colors, font } from '@/lib/theme';
+import { font, useTheme, type ThemeColors } from '@/lib/theme';
 
 export default function MovieDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const movieId = Number(id);
   const { user, displayName } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: movies } = useList('movies');
   const movie = movies?.find((m) => m.id === movieId);
@@ -29,17 +30,24 @@ export default function MovieDetailScreen() {
     ? movie?.movie_reviews.find((r) => r.user_id === partner.id)
     : undefined;
 
+  const initialReview = myReview?.review ?? '';
+  const reviewRef = useRef(initialReview);
+  const dirtyRef = useRef(false);
+
   const [rating, setRating] = useState(myReview?.rating ?? 0);
-  const [review, setReview] = useState(myReview?.review ?? '');
-  const [dirty, setDirty] = useState(false);
+  const [hydratedReview, setHydratedReview] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
-    if (!dirty && myReview) {
+    if (!dirtyRef.current && myReview) {
       setRating(myReview.rating);
-      setReview(myReview.review ?? '');
+      const nextText = myReview.review ?? '';
+      if (nextText !== reviewRef.current) {
+        reviewRef.current = nextText;
+        setHydratedReview(nextText);
+      }
     }
-  }, [dirty, myReview]);
+  }, [myReview]);
 
   const handleSave = async () => {
     if (!user || rating < 1) return;
@@ -47,9 +55,9 @@ export default function MovieDetailScreen() {
       movie_id: movieId,
       user_id: user.id,
       rating,
-      review: review.trim() || null,
+      review: reviewRef.current.trim() || null,
     });
-    setDirty(false);
+    dirtyRef.current = false;
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2000);
   };
@@ -64,21 +72,7 @@ export default function MovieDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen
-        options={{
-          title: movie.title,
-          headerRight: () => (
-            <Pressable
-              onPress={() =>
-                router.push({ pathname: '/form', params: { type: 'movie', id: String(movie.id) } })
-              }
-              hitSlop={10}
-            >
-              <Ionicons name="pencil" size={20} color={colors.text} />
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ title: movie.title }} />
 
       <Card style={styles.headerCard}>
         <Text style={styles.title}>{movie.title}</Text>
@@ -113,19 +107,20 @@ export default function MovieDetailScreen() {
           value={rating}
           onChange={(r) => {
             setRating(r);
-            setDirty(true);
+            dirtyRef.current = true;
             setSavedNotice(false);
           }}
           size={28}
         />
 
         <Input
+          key={hydratedReview !== null ? 'hydrated' : 'initial'}
           label="Opinión"
-          value={review}
+          defaultValue={hydratedReview ?? initialReview}
           onChangeText={(text) => {
-            setReview(text);
-            setDirty(true);
-            setSavedNotice(false);
+            reviewRef.current = text;
+            dirtyRef.current = true;
+            if (savedNotice) setSavedNotice(false);
           }}
           placeholder="¿Qué te pareció?"
           multiline
@@ -145,6 +140,14 @@ export default function MovieDetailScreen() {
       </Card>
 
       <Button
+        title="Editar película"
+        variant="soft"
+        onPress={() =>
+          router.push({ pathname: '/form', params: { type: 'movie', id: String(movie.id) } })
+        }
+      />
+
+      <Button
         title="Borrar película"
         variant="outline"
         onPress={() =>
@@ -159,7 +162,8 @@ export default function MovieDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     padding: 16,
     gap: 14,

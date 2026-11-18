@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 type Props = {
   value: number;
@@ -9,16 +9,17 @@ type Props = {
 };
 
 export function Hearts({ value, onChange, size = 20 }: Props) {
+  const { colors } = useTheme();
   return (
     <View style={styles.row}>
       {[1, 2, 3, 4, 5].map((n) => {
         const icon =
           value >= n - 0.25
-            ? 'heart'
+            ? 'star'
             : !onChange && value >= n - 0.75
-              ? 'heart-half'
-              : 'heart-outline';
-        const color = icon === 'heart-outline' ? colors.border : colors.primary;
+              ? 'star-half'
+              : 'star-outline';
+        const color = icon === 'star-outline' ? colors.border : colors.primary;
 
         if (!onChange) {
           return <Ionicons key={n} name={icon} size={size} color={color} />;

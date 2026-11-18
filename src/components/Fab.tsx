@@ -1,16 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
-import { colors, radius } from '@/lib/theme';
+import { radius, useTheme } from '@/lib/theme';
 
 type Props = {
   onPress: () => void;
 };
 
 export function Fab({ onPress }: Props) {
+  const { colors } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.fab,
+        { backgroundColor: colors.primary, shadowColor: colors.text },
+        pressed && styles.pressed,
+      ]}
       accessibilityLabel="Agregar"
     >
       <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -26,11 +32,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: radius.pill,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: colors.text,
     shadowOpacity: 0.16,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },

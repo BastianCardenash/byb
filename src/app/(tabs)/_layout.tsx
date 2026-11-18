@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { colors, font } from '@/lib/theme';
+import { font, useTheme } from '@/lib/theme';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -17,7 +18,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: font.semibold,
-          fontSize: 11,
+          fontSize: 10,
         },
         headerStyle: {
           backgroundColor: colors.bg,
@@ -67,6 +68,19 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'restaurant' : 'restaurant-outline'}
+              size={22}
+              color={color as string}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: 'Cuenta',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
               size={22}
               color={color as string}
             />

@@ -5,9 +5,10 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
-import { formatDate } from '@/lib/dates';
+import { SkeletonList } from '@/components/SkeletonList';
+import { formatDate, formatDateParts } from '@/lib/dates';
 import { confirmDelete, useList, useMutate, type Outing } from '@/lib/db';
-import { colors, font } from '@/lib/theme';
+import { font, radius, useTheme } from '@/lib/theme';
 
 const OutingRow = memo(function OutingRow({
   item,
@@ -16,29 +17,41 @@ const OutingRow = memo(function OutingRow({
   item: Outing;
   onDelete: (item: Outing) => void;
 }) {
+  const { colors } = useTheme();
+  const { day, monthYear } = formatDateParts(item.happened_on);
+
   return (
-    <Card onLongPress={() => onDelete(item)}>
-      <View style={styles.rowHeader}>
-        <View style={styles.titleWrap}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.date}>{formatDate(item.happened_on)}</Text>
-        </View>
-        <Pressable
-          onPress={() =>
-            router.push({ pathname: '/form', params: { type: 'outing', id: String(item.id) } })
-          }
-          hitSlop={10}
-          style={styles.editBtn}
-        >
-          <Ionicons name="pencil" size={18} color={colors.muted} />
-        </Pressable>
+    <Pressable
+      onPress={() =>
+        router.push({ pathname: '/form', params: { type: 'outing', id: String(item.id) } })
+      }
+      onLongPress={() => onDelete(item)}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: colors.card },
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={styles.textCol}>
+        <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
+        {item.description ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <Text style={[styles.desc, { color: colors.muted }]}>{item.description}</Text>
+          </>
+        ) : null}
       </View>
-      {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
-    </Card>
+
+      <View style={[styles.calendarBox, { backgroundColor: colors.primarySoft }]}>
+        <Text style={[styles.calDay, { color: colors.primary }]}>{day}</Text>
+        <Text style={[styles.calMonthYear, { color: colors.text }]}>{monthYear}</Text>
+      </View>
+    </Pressable>
   );
 });
 
 export default function OutingsScreen() {
+  const { colors } = useTheme();
   const { data, isRefetching, refetch, isPending } = useList('outings');
   const remove = useMutate('outings', 'delete');
 
@@ -49,10 +62,17 @@ export default function OutingsScreen() {
     [remove],
   );
 
+  const outings = data ?? [];
+  const count = outings.length;
+  const countLabel = count === 1 ? '1 salida' : `${count} salidas`;
+  const latestLabel = outings[0]
+    ? `Última el ${formatDate(outings[0].happened_on)}`
+    : 'Aún no hay salidas';
+
   return (
     <View style={styles.screen}>
       <FlatList
-        data={data ?? []}
+        data={outings}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={
@@ -65,9 +85,31 @@ export default function OutingsScreen() {
             colors={[colors.primary]}
           />
         }
+        ListHeaderComponent={
+          isPending ? undefined : (
+            <View style={styles.headerWrap}>
+              <Card style={styles.summaryCard}>
+                <View style={[styles.summaryIcon, { backgroundColor: colors.primarySoft }]}>
+                  <Ionicons name="compass" size={26} color={colors.primary} />
+                </View>
+                <View style={styles.summaryText}>
+                  <Text style={[styles.summaryCount, { color: colors.text }]}>{countLabel}</Text>
+                  <Text style={[styles.summarySub, { color: colors.muted }]}>{latestLabel}</Text>
+                </View>
+              </Card>
+              {count > 0 ? (
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Todas las salidas
+                </Text>
+              ) : null}
+            </View>
+          )
+        }
         renderItem={({ item }) => <OutingRow item={item} onDelete={handleDelete} />}
         ListEmptyComponent={
-          isPending ? undefined : (
+          isPending ? (
+            <SkeletonList variant="outings" />
+          ) : (
             <EmptyState
               icon="compass-outline"
               title="Todavía no hay salidas"
@@ -90,34 +132,83 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
     gap: 12,
   },
-  rowHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+  headerWrap: {
+    gap: 18,
+    marginBottom: 4,
   },
-  titleWrap: {
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  summaryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryText: {
     flex: 1,
     gap: 2,
   },
-  title: {
-    fontFamily: font.semibold,
-    fontSize: 16,
-    color: colors.text,
+  summaryCount: {
+    fontFamily: font.bold,
+    fontSize: 22,
   },
-  date: {
+  summarySub: {
     fontFamily: font.regular,
     fontSize: 13,
-    color: colors.muted,
   },
-  editBtn: {
-    padding: 4,
+  sectionTitle: {
+    fontFamily: font.semibold,
+    fontSize: 16,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: radius.card,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    minHeight: 96,
+    gap: 14,
+  },
+  pressed: {
+    opacity: 0.88,
+  },
+  textCol: {
+    flex: 1,
+    gap: 12,
+  },
+  title: {
+    fontFamily: font.semibold,
+    fontSize: 17,
+  },
+  divider: {
+    height: 1,
   },
   desc: {
     fontFamily: font.regular,
     fontSize: 14,
-    color: colors.text,
-    marginTop: 10,
     lineHeight: 20,
+  },
+  calendarBox: {
+    minWidth: 74,
+    borderRadius: radius.input,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  calDay: {
+    fontFamily: font.bold,
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  calMonthYear: {
+    fontFamily: font.semibold,
+    fontSize: 11,
   },
 });
