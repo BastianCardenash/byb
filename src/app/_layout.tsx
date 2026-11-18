@@ -81,6 +81,7 @@ export default function RootLayout() {
             screenOptions={{
               headerStyle: { backgroundColor: colors.bg },
               headerShadowVisible: false,
+              headerTitleAlign: 'center',
               headerTitleStyle: { fontFamily: font.semibold, color: colors.text },
               headerTintColor: colors.text,
               contentStyle: { backgroundColor: colors.bg },

@@ -1,6 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { font, useTheme } from '@/lib/theme';
+
+function NotchHeader({ title }: { title: string }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.headerWrap, { backgroundColor: colors.bg }]}>
+      <View
+        style={[
+          styles.notch,
+          {
+            backgroundColor: colors.primary,
+            paddingTop: insets.top + 14,
+          },
+        ]}
+      >
+        <Text style={styles.notchTitle} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -20,15 +45,7 @@ export default function TabsLayout() {
           fontFamily: font.semibold,
           fontSize: 10,
         },
-        headerStyle: {
-          backgroundColor: colors.bg,
-        },
-        headerShadowVisible: false,
-        headerTitleStyle: {
-          fontFamily: font.bold,
-          fontSize: 22,
-          color: colors.text,
-        },
+        header: ({ options }) => <NotchHeader title={options.title ?? ''} />,
         sceneStyle: {
           backgroundColor: colors.bg,
         },
@@ -90,3 +107,23 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerWrap: {
+    width: '100%',
+  },
+  notch: {
+    width: '100%',
+    paddingHorizontal: 32,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 999,
+    borderBottomRightRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notchTitle: {
+    fontFamily: font.bold,
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+});
