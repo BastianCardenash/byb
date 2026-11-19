@@ -71,6 +71,25 @@ export default function OutingsScreen() {
 
   return (
     <View style={styles.screen}>
+      {!isPending ? (
+        <View style={styles.topSection}>
+          <Card style={styles.summaryCard}>
+            <View style={[styles.summaryIcon, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="compass" size={26} color={colors.primary} />
+            </View>
+            <View style={styles.summaryText}>
+              <Text style={[styles.summaryCount, { color: colors.text }]}>{countLabel}</Text>
+              <Text style={[styles.summarySub, { color: colors.muted }]}>{latestLabel}</Text>
+            </View>
+          </Card>
+          {count > 0 ? (
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Todas las salidas
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <FlatList
         data={outings}
         keyExtractor={(item) => String(item.id)}
@@ -84,26 +103,6 @@ export default function OutingsScreen() {
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
-        }
-        ListHeaderComponent={
-          isPending ? undefined : (
-            <View style={styles.headerWrap}>
-              <Card style={styles.summaryCard}>
-                <View style={[styles.summaryIcon, { backgroundColor: colors.primarySoft }]}>
-                  <Ionicons name="compass" size={26} color={colors.primary} />
-                </View>
-                <View style={styles.summaryText}>
-                  <Text style={[styles.summaryCount, { color: colors.text }]}>{countLabel}</Text>
-                  <Text style={[styles.summarySub, { color: colors.muted }]}>{latestLabel}</Text>
-                </View>
-              </Card>
-              {count > 0 ? (
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Todas las salidas
-                </Text>
-              ) : null}
-            </View>
-          )
         }
         renderItem={({ item }) => <OutingRow item={item} onDelete={handleDelete} />}
         ListEmptyComponent={
@@ -127,14 +126,17 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  topSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+    gap: 18,
+  },
   list: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 96,
     gap: 12,
-  },
-  headerWrap: {
-    gap: 18,
-    marginBottom: 4,
   },
   summaryCard: {
     flexDirection: 'row',

@@ -92,6 +92,7 @@ export default function RootLayout() {
               <Stack.Screen name="movie/[id]" options={{ title: 'Película' }} />
               <Stack.Screen name="meal/[id]" options={{ title: 'Comida' }} />
               <Stack.Screen name="more" options={{ title: 'Más' }} />
+              <Stack.Screen name="stickers" options={{ title: 'Stickers' }} />
               <Stack.Screen name="form" options={{ presentation: 'modal', title: '' }} />
             </Stack.Protected>
             <Stack.Protected guard={!isLoggedIn}>

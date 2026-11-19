@@ -1,0 +1,18 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.whatsappstickers'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.whatsappstickers"
+}
+
+dependencies {
+  implementation 'com.aureusapps.android:webp-android:1.1.2'
+  implementation 'com.github.bumptech.glide:gifdecoder:4.16.0'
+  implementation 'com.github.wseemann:FFmpegMediaMetadataRetriever-core:1.0.23'
+  implementation 'com.github.wseemann:FFmpegMediaMetadataRetriever-native:1.0.23'
+}

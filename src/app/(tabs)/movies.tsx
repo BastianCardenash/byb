@@ -159,6 +159,12 @@ export default function MoviesScreen() {
         })}
       </View>
 
+      {!isPending && items.length > 0 ? (
+        <Text style={styles.sectionTitle}>
+          {tab === 'watched' ? 'Películas vistas' : 'Lista por ver'}
+        </Text>
+      ) : null}
+
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
@@ -172,13 +178,6 @@ export default function MoviesScreen() {
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
-        }
-        ListHeaderComponent={
-          !isPending && items.length > 0 ? (
-            <Text style={styles.sectionTitle}>
-              {tab === 'watched' ? 'Películas vistas' : 'Lista por ver'}
-            </Text>
-          ) : undefined
         }
         renderItem={({ item }) => (
           <MovieRow
@@ -274,6 +273,8 @@ const createStyles = (colors: ThemeColors) =>
     fontFamily: font.semibold,
     fontSize: 16,
     color: colors.text,
+    marginHorizontal: 16,
+    marginTop: 14,
     marginBottom: 4,
   },
   segmentWrap: {
@@ -303,7 +304,8 @@ const createStyles = (colors: ThemeColors) =>
     color: colors.text,
   },
   list: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 96,
     gap: 12,
   },

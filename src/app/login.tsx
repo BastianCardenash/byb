@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
+import { NotchHeader } from '@/components/NotchHeader';
 import { supabase } from '@/lib/supabase';
 import { font, useTheme, type ThemeColors } from '@/lib/theme';
 
@@ -38,17 +39,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView edges={['bottom']} style={styles.safe}>
+      <NotchHeader title="Iniciar sesión" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.center}
       >
-        <View style={styles.header}>
-          <View style={styles.badge}>
-            <Ionicons name="heart" size={28} color={colors.primary} />
-          </View>
-          <Text style={styles.brand}>byb</Text>
-          <Text style={styles.subtitle}>Bastián & Beatriz</Text>
+        <View style={styles.badge}>
+          <Ionicons name="heart" size={28} color={colors.primary} />
         </View>
 
         <Card style={styles.card}>
@@ -93,10 +91,6 @@ const createStyles = (colors: ThemeColors) =>
     padding: 24,
     gap: 24,
   },
-  header: {
-    alignItems: 'center',
-    gap: 6,
-  },
   badge: {
     width: 60,
     height: 60,
@@ -104,17 +98,7 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
-  },
-  brand: {
-    fontFamily: font.bold,
-    fontSize: 32,
-    color: colors.text,
-  },
-  subtitle: {
-    fontFamily: font.regular,
-    fontSize: 15,
-    color: colors.muted,
+    alignSelf: 'center',
   },
   card: {
     gap: 14,
