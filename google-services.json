@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "378178052491",
+    "project_id": "byb-app-d420c",
+    "storage_bucket": "byb-app-d420c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:378178052491:android:04d7186cdae2f697058f8e",
+        "android_client_info": {
+          "package_name": "com.bastian.byb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaBJmXKB51HJYdGolRUCZ0O_kwvm_XjV4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

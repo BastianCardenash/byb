@@ -43,10 +43,22 @@ const MovieRow = memo(function MovieRow({
       }
       onLongPress={() => onDelete(item)}
     >
-      <View style={styles.titleWrap}>
-        <Text style={styles.title}>{item.title}</Text>
-        {item.watched_on ? (
-          <Text style={styles.date}>{formatDate(item.watched_on)}</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.titleWrap}>
+          <Text style={styles.title}>{item.title}</Text>
+          {item.watched_on ? (
+            <Text style={styles.date}>{formatDate(item.watched_on)}</Text>
+          ) : null}
+        </View>
+        {!isWatched ? (
+          <Pressable
+            onPress={() => onDelete(item)}
+            hitSlop={6}
+            accessibilityLabel={`Eliminar ${item.title}`}
+            style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.text} />
+          </Pressable>
         ) : null}
       </View>
 
@@ -159,12 +171,6 @@ export default function MoviesScreen() {
         })}
       </View>
 
-      {!isPending && items.length > 0 ? (
-        <Text style={styles.sectionTitle}>
-          {tab === 'watched' ? 'Películas vistas' : 'Lista por ver'}
-        </Text>
-      ) : null}
-
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
@@ -269,14 +275,6 @@ const createStyles = (colors: ThemeColors) =>
     height: 32,
     backgroundColor: colors.border,
   },
-  sectionTitle: {
-    fontFamily: font.semibold,
-    fontSize: 16,
-    color: colors.text,
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 4,
-  },
   segmentWrap: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -309,7 +307,14 @@ const createStyles = (colors: ThemeColors) =>
     paddingBottom: 96,
     gap: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   titleWrap: {
+    flex: 1,
     gap: 2,
   },
   title: {
@@ -355,6 +360,14 @@ const createStyles = (colors: ThemeColors) =>
     fontFamily: font.semibold,
     fontSize: 13,
     color: colors.text,
+  },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.85,

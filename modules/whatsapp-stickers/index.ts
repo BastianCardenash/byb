@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 export type StickerKind = 'static' | 'animated';
 
@@ -36,22 +36,32 @@ type NativeWhatsappStickersModule = {
   sendPackToWhatsApp(packId: string): Promise<boolean>;
 };
 
-const Native = requireNativeModule<NativeWhatsappStickersModule>('WhatsappStickers');
+const Native = requireOptionalNativeModule<NativeWhatsappStickersModule>('WhatsappStickers');
+
+export const isWhatsappStickersAvailable = Native !== null;
+
+function requireNative(): NativeWhatsappStickersModule {
+  if (!Native) {
+    throw new Error('El módulo de stickers solo está disponible en la build nativa de Android.');
+  }
+  return Native;
+}
 
 export function getStickerPacks(): Promise<StickerPack[]> {
+  if (!Native) return Promise.resolve([]);
   return Native.getPacks();
 }
 
 export function createStickerPack(name: string, animated: boolean): Promise<StickerPack> {
-  return Native.createPack(name, animated);
+  return requireNative().createPack(name, animated);
 }
 
 export function renameStickerPack(packId: string, name: string): Promise<void> {
-  return Native.renamePack(packId, name);
+  return requireNative().renamePack(packId, name);
 }
 
 export function deleteStickerPack(packId: string): Promise<void> {
-  return Native.deletePack(packId);
+  return requireNative().deletePack(packId);
 }
 
 export function importSticker(
@@ -59,13 +69,13 @@ export function importSticker(
   emojis: string[] = ['😊'],
   targetPackId: string | null = null,
 ): Promise<AddStickerResult> {
-  return Native.importSticker(sourceUri, emojis, targetPackId);
+  return requireNative().importSticker(sourceUri, emojis, targetPackId);
 }
 
 export function deleteSticker(packId: string, fileName: string): Promise<void> {
-  return Native.deleteSticker(packId, fileName);
+  return requireNative().deleteSticker(packId, fileName);
 }
 
 export function sendPackToWhatsApp(packId: string): Promise<boolean> {
-  return Native.sendPackToWhatsApp(packId);
+  return requireNative().sendPackToWhatsApp(packId);
 }

@@ -16,6 +16,7 @@ import {
   deleteStickerPack,
   getStickerPacks,
   importSticker,
+  isWhatsappStickersAvailable,
   renameStickerPack,
   sendPackToWhatsApp,
   type StickerItem,
@@ -155,6 +156,18 @@ export default function StickersScreen() {
   };
 
   const missingCount = Math.max(0, 3 - stickers.length);
+
+  if (!isWhatsappStickersAvailable) {
+    return (
+      <View style={styles.unavailable}>
+        <EmptyState
+          icon="logo-whatsapp"
+          title="Solo disponible en Android compilado"
+          subtitle="Los stickers usan un módulo nativo propio, por lo que funcionan en el APK o Development Build de Android (no en Web ni Expo Go)."
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -349,6 +362,10 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     screen: {
       flex: 1,
+    },
+    unavailable: {
+      flex: 1,
+      justifyContent: 'center',
     },
     topSection: {
       padding: 16,

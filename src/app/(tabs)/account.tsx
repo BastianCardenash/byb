@@ -4,15 +4,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useAuth } from '@/lib/auth';
+import { removePushToken } from '@/lib/notifications';
 import { clearQueryCache } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
 import { font, THEMES, useTheme, type ThemeColors, type ThemeId } from '@/lib/theme';
-
-const createdAtFormatter = new Intl.DateTimeFormat('es-CL', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
 
 const THEME_IDS = Object.keys(THEMES) as ThemeId[];
 
@@ -20,61 +15,25 @@ export default function AccountScreen() {
   const { user, displayName } = useAuth();
   const { themeId, setThemeId, colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [showInfo, setShowInfo] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const handleLogout = async () => {
     setSigningOut(true);
+    if (user) {
+      await removePushToken(user.id);
+    }
     await supabase.auth.signOut();
     clearQueryCache();
     setSigningOut(false);
   };
 
-  const createdLabel = user?.created_at
-    ? createdAtFormatter.format(new Date(user.created_at))
-    : '—';
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Card style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={26} color={colors.primary} />
+          <Ionicons name="person" size={28} color={colors.primary} />
         </View>
-        <View style={styles.profileText}>
-          <Text style={styles.name}>{displayName || 'Cuenta'}</Text>
-          <Text style={styles.email}>{user?.email ?? ''}</Text>
-        </View>
-      </Card>
-
-      <Card onPress={() => setShowInfo((v) => !v)} style={styles.sectionCard}>
-        <View style={styles.actionRow}>
-          <View style={styles.actionLeft}>
-            <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
-            <Text style={styles.actionText}>Información de la cuenta</Text>
-          </View>
-          <Ionicons
-            name={showInfo ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={colors.muted}
-          />
-        </View>
-
-        {showInfo ? (
-          <View style={styles.details}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Nombre</Text>
-              <Text style={styles.detailValue}>{displayName || '—'}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Correo</Text>
-              <Text style={styles.detailValue}>{user?.email ?? '—'}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Cuenta creada</Text>
-              <Text style={styles.detailValue}>{createdLabel}</Text>
-            </View>
-          </View>
-        ) : null}
+        <Text style={styles.name}>{displayName || 'Cuenta'}</Text>
       </Card>
 
       <Card style={styles.sectionCard}>
@@ -118,7 +77,7 @@ export default function AccountScreen() {
 
       <Button
         title="Cerrar sesión"
-        variant="outline"
+        variant="danger"
         onPress={handleLogout}
         loading={signingOut}
         style={styles.logout}
@@ -135,39 +94,26 @@ const createStyles = (colors: ThemeColors) =>
       gap: 14,
     },
     profileCard: {
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: 14,
+      paddingVertical: 20,
+      gap: 10,
     },
     avatar: {
-      width: 52,
-      height: 52,
+      width: 60,
+      height: 60,
       borderRadius: 999,
       backgroundColor: colors.primarySoft,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    profileText: {
-      flex: 1,
-      gap: 2,
-    },
     name: {
       fontFamily: font.bold,
       fontSize: 18,
       color: colors.text,
-    },
-    email: {
-      fontFamily: font.regular,
-      fontSize: 14,
-      color: colors.muted,
+      textAlign: 'center',
     },
     sectionCard: {
       gap: 14,
-    },
-    actionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
     },
     actionLeft: {
       flexDirection: 'row',
@@ -177,27 +123,6 @@ const createStyles = (colors: ThemeColors) =>
     actionText: {
       fontFamily: font.semibold,
       fontSize: 15,
-      color: colors.text,
-    },
-    details: {
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 12,
-      gap: 10,
-    },
-    detailRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    detailLabel: {
-      fontFamily: font.regular,
-      fontSize: 14,
-      color: colors.muted,
-    },
-    detailValue: {
-      fontFamily: font.semibold,
-      fontSize: 14,
       color: colors.text,
     },
     swatches: {
@@ -233,5 +158,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     logout: {
       marginTop: 'auto',
+      backgroundColor: THEMES.red.colors.primary,
     },
   });

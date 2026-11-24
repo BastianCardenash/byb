@@ -5,7 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { Input } from '@/components/Input';
+import { MovieTitleField } from '@/components/MovieTitleField';
 import { todayYMD } from '@/lib/dates';
+import { notifyWishlistMovie } from '@/lib/notifications';
 import {
   useItem,
   useMutate,
@@ -138,6 +140,9 @@ export default function FormModal() {
         await save.mutateAsync({ id: itemId, values } as never);
       } else {
         await save.mutateAsync(values as never);
+        if (!watched) {
+          void notifyWishlistMovie(cleanTitle);
+        }
       }
     } else {
       const values = { title: cleanTitle, cooked_on: date, recipe: cleanExtra };
@@ -157,21 +162,24 @@ export default function FormModal() {
         options={{ title: isEdit ? TITLES[type].edit : TITLES[type].create }}
       />
 
-      <Input
-        label="Título"
-        defaultValue={initialTitle}
-        onChangeText={(text) => {
-          titleRef.current = text;
-        }}
-        placeholder={
-          type === 'outing'
-            ? 'Ej. Café en Lastarria'
-            : type === 'movie'
-              ? 'Ej. Past Lives'
-              : 'Ej. Pasta al pesto'
-        }
-        maxLength={type === 'movie' ? 200 : 120}
-      />
+      {type === 'movie' ? (
+        <MovieTitleField
+          defaultValue={initialTitle}
+          onChangeTitle={(text) => {
+            titleRef.current = text;
+          }}
+        />
+      ) : (
+        <Input
+          label="Título"
+          defaultValue={initialTitle}
+          onChangeText={(text) => {
+            titleRef.current = text;
+          }}
+          placeholder={type === 'outing' ? 'Ej. Café en Lastarria' : 'Ej. Pasta al pesto'}
+          maxLength={120}
+        />
+      )}
 
       {type === 'movie' ? (
         <View style={styles.toggleRow}>

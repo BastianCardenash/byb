@@ -6,11 +6,14 @@ import {
 } from '@expo-google-fonts/inter';
 import type { Session } from '@supabase/supabase-js';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { AuthContext, getDisplayName } from '@/lib/auth';
+import { registerPushToken } from '@/lib/notifications';
 import { persistOptions, queryClient } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
 import {
@@ -60,6 +63,24 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [ready]);
+
+  const userId = session?.user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    void registerPushToken(userId);
+  }, [userId]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const url = response.notification.request.content.data?.url;
+      if (url === '/(tabs)/movies') {
+        router.navigate('/(tabs)/movies');
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!ready) return null;
 
