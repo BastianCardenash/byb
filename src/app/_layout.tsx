@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { AuthContext, getDisplayName } from '@/lib/auth';
+import { NotchHeader } from '@/components/NotchHeader';
 import { registerPushToken } from '@/lib/notifications';
 import { persistOptions, queryClient } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
@@ -75,8 +76,8 @@ export default function RootLayout() {
     if (Platform.OS === 'web') return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const url = response.notification.request.content.data?.url;
-      if (url === '/(tabs)/movies') {
-        router.navigate('/(tabs)/movies');
+      if (url === '/(tabs)/movies' || url === '/(tabs)') {
+        router.navigate(url);
       }
     });
     return () => sub.remove();
@@ -111,8 +112,21 @@ export default function RootLayout() {
             <Stack.Protected guard={isLoggedIn}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="movie/[id]" options={{ title: 'Película' }} />
-              <Stack.Screen name="meal/[id]" options={{ title: 'Comida' }} />
-              <Stack.Screen name="more" options={{ title: 'Más' }} />
+              <Stack.Screen name="meal/[id]" options={{ title: 'Receta' }} />
+              <Stack.Screen
+                name="more"
+                options={{
+                  title: 'Más',
+                  header: ({ back, navigation, options }) => (
+                    <NotchHeader
+                      title={options.title ?? ''}
+                      onBack={back ? navigation.goBack : undefined}
+                    />
+                  ),
+                }}
+              />
+              <Stack.Screen name="roulette" options={{ title: 'Ruleta' }} />
+              <Stack.Screen name="dice" options={{ title: 'Dados' }} />
               <Stack.Screen name="stickers" options={{ title: 'Stickers' }} />
               <Stack.Screen name="form" options={{ presentation: 'modal', title: '' }} />
             </Stack.Protected>

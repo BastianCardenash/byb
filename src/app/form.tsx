@@ -23,7 +23,7 @@ type FormType = 'outing' | 'movie' | 'meal';
 const TITLES: Record<FormType, { create: string; edit: string }> = {
   outing: { create: 'Nueva salida', edit: 'Editar salida' },
   movie: { create: 'Nueva película', edit: 'Editar película' },
-  meal: { create: 'Nueva comida', edit: 'Editar comida' },
+  meal: { create: 'Nueva receta', edit: 'Editar receta' },
 };
 
 export default function FormModal() {
@@ -176,7 +176,7 @@ export default function FormModal() {
           onChangeText={(text) => {
             titleRef.current = text;
           }}
-          placeholder={type === 'outing' ? 'Ej. Café en Lastarria' : 'Ej. Pasta al pesto'}
+          placeholder={type === 'outing' ? 'Ej. Parque Metropolitano' : 'Ej. Pasta al pesto'}
           maxLength={120}
         />
       )}
@@ -205,13 +205,7 @@ export default function FormModal() {
 
       {type !== 'movie' || watched ? (
         <DateField
-          label={
-            type === 'outing'
-              ? 'Fecha'
-              : type === 'movie'
-                ? 'Fecha en que la vieron'
-                : 'Fecha'
-          }
+          label={type === 'movie' ? 'Fecha en que la vimos' : 'Fecha'}
           value={date}
           onChange={setDate}
         />
@@ -219,13 +213,13 @@ export default function FormModal() {
 
       {type === 'outing' ? (
         <Input
-          label="Descripción (opcional)"
+          label="Descripción"
           defaultValue={initialExtra}
           onChangeText={(text) => {
             extraRef.current = text;
             extraDirtyRef.current = true;
           }}
-          placeholder="Cómo estuvo, qué hicieron..."
+          placeholder="¿Cómo estuvo? ¿Qué hicimos?"
           multiline
           maxLength={2000}
         />
@@ -234,7 +228,7 @@ export default function FormModal() {
       {type === 'meal' ? (
         <Input
           key={loadedRecipe !== null ? 'loaded' : 'initial'}
-          label="Receta (opcional)"
+          label="Receta"
           defaultValue={loadedRecipe ?? initialExtra}
           onChangeText={(text) => {
             extraRef.current = text;

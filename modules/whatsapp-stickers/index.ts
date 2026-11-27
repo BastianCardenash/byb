@@ -26,12 +26,26 @@ export type AddStickerResult = {
   sticker: StickerItem;
 };
 
+export type ConvertPriority = 'fps' | 'quality';
+
+export type ImportStickerOptions = {
+  maxFrames?: number;
+  maxDurationMs?: number;
+  maxFps?: number;
+  priority?: ConvertPriority;
+};
+
 type NativeWhatsappStickersModule = {
   getPacks(): Promise<StickerPack[]>;
   createPack(name: string, animated: boolean): Promise<StickerPack>;
   renamePack(packId: string, name: string): Promise<void>;
   deletePack(packId: string): Promise<void>;
-  importSticker(sourceUri: string, emojis?: string[], targetPackId?: string | null): Promise<AddStickerResult>;
+  importSticker(
+    sourceUri: string,
+    emojis?: string[],
+    targetPackId?: string | null,
+    options?: ImportStickerOptions | null,
+  ): Promise<AddStickerResult>;
   deleteSticker(packId: string, fileName: string): Promise<void>;
   sendPackToWhatsApp(packId: string): Promise<boolean>;
 };
@@ -68,8 +82,9 @@ export function importSticker(
   sourceUri: string,
   emojis: string[] = ['😊'],
   targetPackId: string | null = null,
+  options: ImportStickerOptions | null = null,
 ): Promise<AddStickerResult> {
-  return requireNative().importSticker(sourceUri, emojis, targetPackId);
+  return requireNative().importSticker(sourceUri, emojis, targetPackId, options);
 }
 
 export function deleteSticker(packId: string, fileName: string): Promise<void> {

@@ -56,7 +56,12 @@ export default function StickersScreen() {
   const stickers = activePack?.stickers ?? [];
 
   const handleImportUri = async (uri: string) => {
-    const result = await importSticker(uri, ['😊'], activePack?.identifier ?? null);
+    const result = await importSticker(uri, ['😊'], activePack?.identifier ?? null, {
+      maxFps: 20,
+      maxFrames: 55,
+      maxDurationMs: 9500,
+      priority: 'fps',
+    });
     const kind: StickerKind = result.animated ? 'animated' : 'static';
     setSelectedIds((prev) => ({ ...prev, [kind]: result.packId }));
     await refetch();
@@ -169,23 +174,29 @@ export default function StickersScreen() {
     );
   }
 
-  return (
-    <View style={styles.screen}>
-      <View style={styles.topSection}>
-        <Card style={styles.creatorCard}>
+  const listHeader = (
+    <View style={styles.topSection}>
+      <View style={styles.sectionBlock}>
+        <Text style={styles.sectionSubtitle}>A partir de un archivo</Text>
+        <Card>
           <Button
             title="Elegir imagen, GIF o video"
             onPress={handlePickFromGallery}
             loading={busyAction === 'gallery'}
             disabled={busyAction !== null && busyAction !== 'gallery'}
           />
+        </Card>
+      </View>
 
+      <View style={styles.sectionBlock}>
+        <Text style={styles.sectionSubtitle}>A partir de un link de X</Text>
+        <Card>
           <View style={styles.twitterRow}>
             <View style={styles.twitterInputWrap}>
               <Input
                 value={tweetUrl}
                 onChangeText={setTweetUrl}
-                placeholder="https://x.com/usuario/status/..."
+                placeholder="Link"
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
@@ -193,7 +204,7 @@ export default function StickersScreen() {
               />
             </View>
             <Button
-              title="X"
+              title="Importar"
               variant="soft"
               onPress={handleImportFromTwitter}
               loading={busyAction === 'twitter'}
@@ -202,91 +213,104 @@ export default function StickersScreen() {
             />
           </View>
         </Card>
-
-        <View style={styles.tabs}>
-          {(
-            [
-              { key: 'static', label: `Estáticos (${staticPacks.length})` },
-              { key: 'animated', label: `Animados (${animatedPacks.length})` },
-            ] as const
-          ).map((item) => {
-            const selected = tab === item.key;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => setTab(item.key)}
-                style={[styles.tabPill, selected && { backgroundColor: colors.primary }]}
-              >
-                <Text style={[styles.tabText, selected && styles.tabTextActive]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.packRow}
-        >
-          {visiblePacks.map((pack) => {
-            const selected = pack.identifier === activePack?.identifier;
-            return (
-              <Pressable
-                key={pack.identifier}
-                onPress={() => setSelectedIds((prev) => ({ ...prev, [tab]: pack.identifier }))}
-                onLongPress={() => handleDeletePack(pack.identifier, pack.name)}
-                style={[
-                  styles.packChip,
-                  selected && {
-                    backgroundColor: colors.primarySoft,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text style={[styles.packChipText, selected && { color: colors.text }]}>
-                  {pack.name} ({pack.stickers.length}/30)
-                </Text>
-                {selected ? (
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => {
-                      setPackNameDraft(pack.name);
-                      setPackModal({ mode: 'rename', packId: pack.identifier });
-                    }}
-                  >
-                    <Ionicons name="pencil" size={14} color={colors.primary} />
-                  </Pressable>
-                ) : null}
-              </Pressable>
-            );
-          })}
-          <Pressable
-            onPress={() => {
-              setPackNameDraft('');
-              setPackModal({ mode: 'create', animated: tab === 'animated' });
-            }}
-            style={styles.newPackChip}
-          >
-            <Ionicons name="add" size={16} color={colors.primary} />
-            <Text style={[styles.packChipText, { color: colors.primary }]}>Nuevo</Text>
-          </Pressable>
-        </ScrollView>
       </View>
 
+      <View style={styles.tabs}>
+        {(
+          [
+            { key: 'static', label: `Estáticos (${staticPacks.length})` },
+            { key: 'animated', label: `Animados (${animatedPacks.length})` },
+          ] as const
+        ).map((item) => {
+          const selected = tab === item.key;
+          return (
+            <Pressable
+              key={item.key}
+              onPress={() => setTab(item.key)}
+              style={[styles.tabPill, selected && { backgroundColor: colors.primary }]}
+            >
+              <Text style={[styles.tabText, selected && styles.tabTextActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.packRow}
+      >
+        {visiblePacks.map((pack) => {
+          const selected = pack.identifier === activePack?.identifier;
+          return (
+            <Pressable
+              key={pack.identifier}
+              onPress={() => setSelectedIds((prev) => ({ ...prev, [tab]: pack.identifier }))}
+              onLongPress={() => handleDeletePack(pack.identifier, pack.name)}
+              style={[
+                styles.packChip,
+                selected && {
+                  backgroundColor: colors.primarySoft,
+                  borderColor: colors.primary,
+                },
+              ]}
+            >
+              <Text style={[styles.packChipText, selected && { color: colors.text }]}>
+                {pack.name} ({pack.stickers.length}/30)
+              </Text>
+              {selected ? (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    setPackNameDraft(pack.name);
+                    setPackModal({ mode: 'rename', packId: pack.identifier });
+                  }}
+                >
+                  <Ionicons name="pencil" size={14} color={colors.primary} />
+                </Pressable>
+              ) : null}
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={() => {
+            setPackNameDraft('');
+            setPackModal({ mode: 'create', animated: tab === 'animated' });
+          }}
+          style={styles.newPackChip}
+        >
+          <Ionicons name="add" size={16} color={colors.primary} />
+          <Text style={[styles.packChipText, { color: colors.primary }]}>Nuevo</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+
+  return (
+    <View style={styles.screen}>
       <FlatList
         data={stickers}
         keyExtractor={(item) => item.id}
         numColumns={3}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={listHeader}
         contentContainerStyle={styles.gridContent}
         columnWrapperStyle={styles.gridRow}
         ListEmptyComponent={
-          <EmptyState
-            icon="happy-outline"
-            title={tab === 'static' ? 'Pack estático vacío' : 'Pack animado vacío'}
-            subtitle="Elige una imagen, GIF o pega un link de X arriba. Toca el lápiz en el pack para renombrarlo."
-          />
+          <View style={styles.emptyWrap}>
+            <View style={styles.skeletonRow}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={styles.skeletonTile}>
+                  <View style={styles.skeletonInner} />
+                </View>
+              ))}
+            </View>
+            <Text style={styles.emptyLabel}>
+              {tab === 'static' ? 'Pack estático vacío' : 'Pack animado vacío'}
+            </Text>
+          </View>
         }
         renderItem={({ item }) => (
           <Pressable
@@ -294,16 +318,13 @@ export default function StickersScreen() {
             style={({ pressed }) => [styles.stickerTile, pressed && styles.pressed]}
           >
             <Image source={{ uri: item.uri }} style={styles.stickerImage} contentFit="contain" />
-            <Text style={styles.sizeBadge}>{Math.ceil(item.sizeBytes / 1024)} KB</Text>
           </Pressable>
         )}
       />
 
       <View style={styles.footer}>
         {missingCount > 0 ? (
-          <Text style={styles.hintText}>
-            WhatsApp pide mínimo 3 stickers por pack (faltan {missingCount}).
-          </Text>
+          <Text style={styles.hintText}>Agrega 3 stickers para importar a WhatsApp</Text>
         ) : (
           <Text style={styles.hintText}>Mantén presionado un sticker para eliminarlo.</Text>
         )}
@@ -368,12 +389,18 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     topSection: {
-      padding: 16,
+      paddingTop: 16,
       paddingBottom: 10,
-      gap: 10,
+      gap: 12,
     },
-    creatorCard: {
-      gap: 10,
+    sectionBlock: {
+      gap: 6,
+    },
+    sectionSubtitle: {
+      fontFamily: font.semibold,
+      fontSize: 14,
+      color: colors.text,
+      textAlign: 'left',
     },
     twitterRow: {
       flexDirection: 'row',
@@ -449,6 +476,40 @@ const createStyles = (colors: ThemeColors) =>
     gridRow: {
       gap: 10,
     },
+    emptyWrap: {
+      paddingTop: 8,
+      gap: 12,
+      alignItems: 'center',
+    },
+    skeletonRow: {
+      flexDirection: 'row',
+      gap: 10,
+      width: '100%',
+    },
+    skeletonTile: {
+      flex: 1,
+      aspectRatio: 1,
+      backgroundColor: colors.card,
+      borderRadius: radius.input,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      padding: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    skeletonInner: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 10,
+      backgroundColor: colors.primarySoft,
+      opacity: 0.6,
+    },
+    emptyLabel: {
+      fontFamily: font.semibold,
+      fontSize: 13,
+      color: colors.muted,
+    },
     stickerTile: {
       flex: 1 / 3,
       aspectRatio: 1,
@@ -463,14 +524,6 @@ const createStyles = (colors: ThemeColors) =>
     stickerImage: {
       width: '100%',
       height: '100%',
-    },
-    sizeBadge: {
-      position: 'absolute',
-      bottom: 4,
-      right: 6,
-      fontFamily: font.regular,
-      fontSize: 10,
-      color: colors.muted,
     },
     pressed: {
       opacity: 0.75,

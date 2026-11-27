@@ -38,7 +38,7 @@ const LIST_CONFIG = {
     orderCol: 'happened_on',
   },
   movies: {
-    select: 'id, title, watched_on, movie_reviews(user_id, rating, review)',
+    select: 'id, title, watched_on, created_by, movie_reviews(user_id, rating, review)',
     orderCol: 'watched_on',
   },
   meals: {
@@ -160,6 +160,54 @@ export function useMutate<T extends MutateTable, M extends MutateMode>(
               : null;
         if (id) qc.invalidateQueries({ queryKey: ['meal', id] });
       }
+    },
+  });
+}
+
+export function useRelationshipStart() {
+  return useQuery<string | null>({
+    queryKey: ['relationship'],
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('relationship')
+        .select('started_on')
+        .eq('id', 1)
+        .single();
+      if (error) throw error;
+      return data.started_on;
+    },
+  });
+}
+
+export function useStartRelationship() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (startedOn: string) => {
+      const { data, error } = await supabase
+        .from('relationship')
+        .update({ started_on: startedOn, updated_at: new Date().toISOString() })
+        .eq('id', 1)
+        .is('started_on', null)
+        .select('started_on')
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return data.started_on;
+
+      const { data: existing, error: readError } = await supabase
+        .from('relationship')
+        .select('started_on')
+        .eq('id', 1)
+        .single();
+      if (readError) throw readError;
+      return existing.started_on;
+    },
+    onSuccess: (startedOn) => {
+      qc.setQueryData(['relationship'], startedOn);
+      void qc.invalidateQueries({ queryKey: ['relationship'] });
     },
   });
 }

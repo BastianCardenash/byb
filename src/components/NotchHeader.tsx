@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { font, useTheme } from '@/lib/theme';
 
@@ -16,7 +17,7 @@ function mixHex(foreground: string, background: string, weight: number): string 
 }
 
 /** Curved top header with progressively lighter stepped bands below the primary notch. */
-export function NotchHeader({ title }: { title: string }) {
+export function NotchHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -27,9 +28,24 @@ export function NotchHeader({ title }: { title: string }) {
         {
           backgroundColor: colors.primary,
           paddingTop: insets.top + 14,
+          paddingHorizontal: onBack ? 56 : 32,
         },
       ]}
     >
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          hitSlop={12}
+          accessibilityLabel="Volver"
+          style={({ pressed }) => [
+            styles.backBtn,
+            { top: insets.top + 10 },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
       <Text style={styles.notchTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -66,12 +82,19 @@ const styles = StyleSheet.create({
   },
   notch: {
     width: '100%',
-    paddingHorizontal: 32,
     paddingBottom: 18,
     borderBottomLeftRadius: 999,
     borderBottomRightRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backBtn: {
+    position: 'absolute',
+    left: 38,
+    padding: 4,
+  },
+  pressed: {
+    opacity: 0.75,
   },
   notchTitle: {
     fontFamily: font.bold,

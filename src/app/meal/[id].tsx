@@ -1,8 +1,8 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DetailHeaderCard } from '@/components/DetailHeaderCard';
 import { formatDate } from '@/lib/dates';
 import { confirmDelete, useItem, useMutate } from '@/lib/db';
 import { font, useTheme, type ThemeColors } from '@/lib/theme';
@@ -26,50 +26,39 @@ export default function MealDetailScreen() {
   if (!meal) {
     return (
       <View style={styles.center}>
-        <Text style={styles.muted}>Comida no encontrada.</Text>
+        <Text style={styles.muted}>Receta no encontrada.</Text>
       </View>
     );
   }
 
+  const openEdit = () =>
+    router.push({ pathname: '/form', params: { type: 'meal', id: String(meal.id) } });
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: meal.title }} />
+      <DetailHeaderCard
+        title={meal.title}
+        subtitle={`Cocinado el ${formatDate(meal.cooked_on)}`}
+        onEdit={openEdit}
+        onDelete={() =>
+          confirmDelete(meal.title, async () => {
+            await removeMeal.mutateAsync(meal.id);
+            router.back();
+          })
+        }
+        deleting={removeMeal.isPending}
+      />
 
-      <Card style={styles.section}>
-        <Text style={styles.title}>{meal.title}</Text>
-        <Text style={styles.date}>Cocinado el {formatDate(meal.cooked_on)}</Text>
-      </Card>
-
-      <Card style={styles.section}>
+      <Card onPress={openEdit} style={styles.section}>
         <Text style={styles.sectionTitle}>Receta</Text>
         {isPlaceholderData && meal.recipe === undefined ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : meal.recipe ? (
           <Text style={styles.recipe}>{meal.recipe}</Text>
         ) : (
-          <Text style={styles.muted}>Sin receta guardada todavía.</Text>
+          <Text style={styles.muted}>Sin receta guardada · Toca para agregar</Text>
         )}
       </Card>
-
-      <Button
-        title="Editar comida"
-        variant="soft"
-        onPress={() =>
-          router.push({ pathname: '/form', params: { type: 'meal', id: String(meal.id) } })
-        }
-      />
-
-      <Button
-        title="Borrar comida"
-        variant="outline"
-        onPress={() =>
-          confirmDelete(meal.title, async () => {
-            await removeMeal.mutateAsync(meal.id);
-            router.back();
-          })
-        }
-        loading={removeMeal.isPending}
-      />
     </ScrollView>
   );
 }
@@ -88,16 +77,6 @@ const createStyles = (colors: ThemeColors) =>
   },
   section: {
     gap: 8,
-  },
-  title: {
-    fontFamily: font.bold,
-    fontSize: 20,
-    color: colors.text,
-  },
-  date: {
-    fontFamily: font.regular,
-    fontSize: 13,
-    color: colors.muted,
   },
   sectionTitle: {
     fontFamily: font.semibold,

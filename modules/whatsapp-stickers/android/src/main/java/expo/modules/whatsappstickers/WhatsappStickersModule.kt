@@ -56,10 +56,20 @@ class WhatsappStickersModule : Module() {
       StickerStore.deletePack(context, packId)
     }
 
-    AsyncFunction("importSticker") { sourceUri: String, emojis: List<String>?, targetPackId: String? ->
+    AsyncFunction("importSticker") {
+      sourceUri: String,
+      emojis: List<String>?,
+      targetPackId: String?,
+      optionsMap: Map<String, Any?>? ->
       val context = appContext.reactContext ?: throw IllegalStateException("React context no disponible")
       val usedEmojis = emojis ?: listOf("😊")
-      val result = StickerConverter.convertAndStore(context, sourceUri, usedEmojis, targetPackId)
+      val options = StickerConverter.ConvertOptions(
+        maxFrames = (optionsMap?.get("maxFrames") as? Number)?.toInt() ?: 55,
+        maxDurationMs = (optionsMap?.get("maxDurationMs") as? Number)?.toLong() ?: 9500L,
+        maxFps = (optionsMap?.get("maxFps") as? Number)?.toInt() ?: 20,
+        priority = (optionsMap?.get("priority") as? String) ?: "fps"
+      )
+      val result = StickerConverter.convertAndStore(context, sourceUri, usedEmojis, targetPackId, options)
       val file = File(StickerStore.packDir(context, result.packId), result.fileName)
       mapOf(
         "packId" to result.packId,

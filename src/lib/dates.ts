@@ -1,4 +1,3 @@
-const RELATIONSHIP_START = '2026-11-14';
 const MS_PER_DAY = 86_400_000;
 
 const dateFormatter = new Intl.DateTimeFormat('es-CL', {
@@ -38,9 +37,9 @@ export function formatDateParts(ymd: string): { day: string; monthYear: string }
   };
 }
 
-export function getRelationshipCounter(now = new Date()) {
+export function getRelationshipCounter(startYmd: string, now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const start = parseLocalDate(RELATIONSHIP_START);
+  const start = parseLocalDate(startYmd);
   const diff = Math.round((today.getTime() - start.getTime()) / MS_PER_DAY);
 
   if (diff < 0) {

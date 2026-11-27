@@ -1,13 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useAuth } from '@/lib/auth';
-import { removePushToken } from '@/lib/notifications';
+import {
+  getNotificationPermissionState,
+  registerPushToken,
+  removePushToken,
+  requestNotificationPermission,
+  type NotificationPermissionState,
+} from '@/lib/notifications';
 import { clearQueryCache } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
-import { font, THEMES, useTheme, type ThemeColors, type ThemeId } from '@/lib/theme';
+import { font, radius, THEMES, useTheme, type ThemeColors, type ThemeId } from '@/lib/theme';
 
 const THEME_IDS = Object.keys(THEMES) as ThemeId[];
 
@@ -16,6 +23,42 @@ export default function AccountScreen() {
   const { themeId, setThemeId, colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [signingOut, setSigningOut] = useState(false);
+  const [notifState, setNotifState] = useState<NotificationPermissionState | null>(null);
+  const [requestingNotif, setRequestingNotif] = useState(false);
+  const prevNotifRef = useRef<NotificationPermissionState | null>(null);
+
+  const refreshNotifications = useCallback(async () => {
+    const next = await getNotificationPermissionState();
+    const prev = prevNotifRef.current;
+    prevNotifRef.current = next;
+    setNotifState(next);
+    if (prev && prev !== 'granted' && next === 'granted' && user) {
+      void registerPushToken(user.id);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshNotifications();
+    }, [refreshNotifications]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refreshNotifications();
+      }
+    });
+    return () => sub.remove();
+  }, [refreshNotifications]);
+
+  const handleRequestNotifications = async () => {
+    setRequestingNotif(true);
+    const next = await requestNotificationPermission(user?.id);
+    prevNotifRef.current = next;
+    setNotifState(next);
+    setRequestingNotif(false);
+  };
 
   const handleLogout = async () => {
     setSigningOut(true);
@@ -75,9 +118,61 @@ export default function AccountScreen() {
         </View>
       </Card>
 
+      <Card style={styles.sectionCard}>
+        <View style={styles.notifHeader}>
+          <View style={styles.actionLeft}>
+            <Ionicons
+              name={notifState === 'granted' ? 'notifications-outline' : 'notifications-off-outline'}
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={styles.actionText}>Notificaciones</Text>
+          </View>
+          {notifState !== null ? (
+            <View
+              style={[
+                styles.statusBadge,
+                notifState === 'granted' ? styles.statusBadgeActive : styles.statusBadgeInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: notifState === 'granted' ? colors.text : colors.muted },
+                ]}
+              >
+                {notifState === 'granted' ? 'Activas' : 'Desactivadas'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {notifState !== null ? (
+          <Text style={styles.notifDesc}>
+            {notifState === 'granted'
+              ? 'Recibirás avisos cuando se agreguen películas a la wishlist.'
+              : notifState === 'blocked'
+                ? 'Los permisos están bloqueados. Actívalos desde los ajustes del sistema.'
+                : 'Activa los permisos para recibir avisos de la wishlist.'}
+          </Text>
+        ) : null}
+        {notifState === 'denied' ? (
+          <Button
+            title="Activar notificaciones"
+            variant="soft"
+            loading={requestingNotif}
+            onPress={handleRequestNotifications}
+          />
+        ) : notifState === 'blocked' ? (
+          <Button
+            title="Abrir ajustes"
+            variant="soft"
+            onPress={() => void Linking.openSettings()}
+          />
+        ) : null}
+      </Card>
+
       <Button
         title="Cerrar sesión"
-        variant="danger"
         onPress={handleLogout}
         loading={signingOut}
         style={styles.logout}
@@ -156,8 +251,36 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 12,
       color: colors.muted,
     },
+    notifHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    statusBadgeActive: {
+      backgroundColor: colors.primarySoft,
+    },
+    statusBadgeInactive: {
+      backgroundColor: colors.bg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    statusText: {
+      fontFamily: font.semibold,
+      fontSize: 12,
+    },
+    notifDesc: {
+      fontFamily: font.regular,
+      fontSize: 13,
+      color: colors.muted,
+      lineHeight: 19,
+    },
     logout: {
       marginTop: 'auto',
-      backgroundColor: THEMES.red.colors.primary,
     },
   });

@@ -83,7 +83,7 @@ export function MovieTitleField({ defaultValue, onChangeTitle }: Props) {
         label="Título"
         value={text}
         onChangeText={handleChangeText}
-        placeholder="Ej. Past Lives"
+        placeholder="Ej. Resident Evil"
         maxLength={200}
       />
 

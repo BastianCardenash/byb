@@ -1,8 +1,9 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DetailHeaderCard } from '@/components/DetailHeaderCard';
 import { Hearts } from '@/components/Hearts';
 import { Input } from '@/components/Input';
 import { useAuth } from '@/lib/auth';
@@ -72,14 +73,20 @@ export default function MovieDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: movie.title }} />
-
-      <Card style={styles.headerCard}>
-        <Text style={styles.title}>{movie.title}</Text>
-        <Text style={styles.date}>
-          {movie.watched_on ? `Vista el ${formatDate(movie.watched_on)}` : 'En wishlist'}
-        </Text>
-      </Card>
+      <DetailHeaderCard
+        title={movie.title}
+        subtitle={movie.watched_on ? `Vista el ${formatDate(movie.watched_on)}` : 'En wishlist'}
+        onEdit={() =>
+          router.push({ pathname: '/form', params: { type: 'movie', id: String(movie.id) } })
+        }
+        onDelete={() =>
+          confirmDelete(movie.title, async () => {
+            await removeMovie.mutateAsync(movie.id);
+            router.back();
+          })
+        }
+        deleting={removeMovie.isPending}
+      />
 
       {partner ? (
         <Card style={styles.section}>
@@ -138,26 +145,6 @@ export default function MovieDetailScreen() {
           disabled={rating < 1}
         />
       </Card>
-
-      <Button
-        title="Editar película"
-        variant="soft"
-        onPress={() =>
-          router.push({ pathname: '/form', params: { type: 'movie', id: String(movie.id) } })
-        }
-      />
-
-      <Button
-        title="Borrar película"
-        variant="outline"
-        onPress={() =>
-          confirmDelete(movie.title, async () => {
-            await removeMovie.mutateAsync(movie.id);
-            router.back();
-          })
-        }
-        loading={removeMovie.isPending}
-      />
     </ScrollView>
   );
 }
@@ -173,19 +160,6 @@ const createStyles = (colors: ThemeColors) =>
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerCard: {
-    gap: 4,
-  },
-  title: {
-    fontFamily: font.bold,
-    fontSize: 20,
-    color: colors.text,
-  },
-  date: {
-    fontFamily: font.regular,
-    fontSize: 13,
-    color: colors.muted,
   },
   section: {
     gap: 12,

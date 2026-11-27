@@ -32,10 +32,18 @@ object StickerConverter {
   private const val CANVAS_SIZE = 512
   private const val MAX_STATIC_BYTES = 100 * 1024
   private const val MAX_ANIMATED_BYTES = 490 * 1024 // Safe margin under WhatsApp 500 KB limit
-  private const val MAX_DURATION_MS = 9500L // Safe margin under WhatsApp 10s limit
-  private const val MAX_ANIMATED_FRAMES = 40
+  private const val DEFAULT_MAX_DURATION_MS = 9500L // Safe margin under WhatsApp 10s limit
+  private const val DEFAULT_MAX_FRAMES = 55
+  private const val DEFAULT_MAX_FPS = 20
 
-  private enum class MediaKind { STATIC, GIF, VIDEO }
+  private enum class MediaKind { STATIC, GIF, VIDEO, ANIMATED_WEBP }
+
+  data class ConvertOptions(
+    val maxFrames: Int = DEFAULT_MAX_FRAMES,
+    val maxDurationMs: Long = DEFAULT_MAX_DURATION_MS,
+    val maxFps: Int = DEFAULT_MAX_FPS,
+    val priority: String = "fps"
+  )
 
   data class ConvertedSticker(
     val id: String,
@@ -55,8 +63,14 @@ object StickerConverter {
     context: Context,
     sourceUri: String,
     emojis: List<String>,
-    targetPackId: String? = null
+    targetPackId: String? = null,
+    options: ConvertOptions = ConvertOptions()
   ): ConvertedSticker {
+    val safeOptions = options.copy(
+      maxFrames = options.maxFrames.coerceIn(5, 120),
+      maxDurationMs = options.maxDurationMs.coerceIn(500L, 9800L),
+      maxFps = options.maxFps.coerceIn(4, 30)
+    )
     val tempFile = resolveToTempFile(context, sourceUri)
     try {
       val kind = detectMediaKind(tempFile)
@@ -83,16 +97,38 @@ object StickerConverter {
             preview.recycle()
           }
         }
+        MediaKind.ANIMATED_WEBP -> {
+          if (tempFile.length() > MAX_ANIMATED_BYTES) {
+            throw IllegalStateException("Este WebP animado ya supera el límite de 500 KB de WhatsApp.")
+          }
+          val packId = StickerStore.resolveTargetPackId(context, animated = true, preferredPackId = targetPackId)
+          val outFile = File(StickerStore.packDir(context, packId), fileName)
+          tempFile.copyTo(outFile, overwrite = true)
+          val record = StickerStore.addSticker(
+            context = context,
+            packId = packId,
+            stickerId = id,
+            fileName = fileName,
+            emojis = emojis,
+            sizeBytes = outFile.length(),
+            trayPreview = null
+          )
+          ConvertedSticker(record.id, record.fileName, packId, true, record.sizeBytes, null)
+        }
         MediaKind.GIF, MediaKind.VIDEO -> {
           val packId = StickerStore.resolveTargetPackId(context, animated = true, preferredPackId = targetPackId)
           val outFile = File(StickerStore.packDir(context, packId), fileName)
-          val frames = if (kind == MediaKind.GIF) extractGifFrames(tempFile) else extractVideoFrames(tempFile)
+          val frames = if (kind == MediaKind.GIF) {
+            extractGifFrames(tempFile, safeOptions)
+          } else {
+            extractVideoFrames(tempFile, safeOptions)
+          }
           if (frames.isEmpty()) {
             throw IllegalStateException("No se pudieron extraer frames de la animación.")
           }
           val preview = frames.first().bitmap.copy(Bitmap.Config.ARGB_8888, false)
           try {
-            encodeAnimatedWebP(context, frames, outFile)
+            encodeAnimatedWebP(context, frames, outFile, safeOptions.priority)
             val record = StickerStore.addSticker(
               context = context,
               packId = packId,
@@ -171,12 +207,22 @@ object StickerConverter {
   }
 
   private fun detectMediaKind(file: File): MediaKind {
-    val header = ByteArray(16)
+    val header = ByteArray(64)
     val read = file.inputStream().use { it.read(header) }
     if (read >= 6) {
       val ascii6 = String(header, 0, 6, Charsets.US_ASCII)
       if (ascii6 == "GIF87a" || ascii6 == "GIF89a") {
         return MediaKind.GIF
+      }
+    }
+    if (read >= 12) {
+      val riff = String(header, 0, 4, Charsets.US_ASCII)
+      val webp = String(header, 8, 4, Charsets.US_ASCII)
+      if (riff == "RIFF" && webp == "WEBP") {
+        val chunkScan = String(header, 12, read - 12, Charsets.US_ASCII)
+        if (chunkScan.contains("ANIM")) {
+          return MediaKind.ANIMATED_WEBP
+        }
       }
     }
     if (read >= 8) {
@@ -254,41 +300,48 @@ object StickerConverter {
       ?: throw IllegalStateException("No se pudo leer la imagen.")
   }
 
-  private fun extractGifFrames(gifFile: File): List<EncodedFrame> {
+  private fun extractGifFrames(gifFile: File, options: ConvertOptions): List<EncodedFrame> {
     val bytes = gifFile.readBytes()
     val decoder = StandardGifDecoder(SimpleGifBitmapProvider())
+    decoder.setDefaultBitmapConfig(Bitmap.Config.ARGB_8888)
     val status = decoder.read(bytes)
     if (status != GifDecoder.STATUS_OK && decoder.frameCount == 0) {
       decoder.clear()
       throw IllegalStateException("No se pudo decodificar el GIF.")
     }
 
-    val rawFrames = mutableListOf<Pair<Int, Int>>() // (index, delayMs)
+    val delays = mutableListOf<Int>()
     var totalDuration = 0L
     for (i in 0 until decoder.frameCount) {
       val rawDelay = decoder.getDelay(i)
-      val delay = if (rawDelay < 16) 100 else rawDelay
-      if (totalDuration + delay > MAX_DURATION_MS && rawFrames.isNotEmpty()) break
-      rawFrames.add(i to delay)
+      val delay = if (rawDelay <= 0) 100 else max(16, rawDelay)
+      if (totalDuration + delay > options.maxDurationMs && delays.isNotEmpty()) break
+      delays.add(delay)
       totalDuration += delay
     }
 
-    val step = max(1, ceil(rawFrames.size.toDouble() / MAX_ANIMATED_FRAMES).toInt())
-    val result = mutableListOf<EncodedFrame>()
+    val minFpsIntervalMs = max(16L, 1000L / options.maxFps)
+    val maxFramesIntervalMs = ceil(totalDuration.toDouble() / options.maxFrames).toLong()
+    val minKeepIntervalMs = max(minFpsIntervalMs, maxFramesIntervalMs)
 
+    val result = mutableListOf<EncodedFrame>()
     decoder.resetFrameIndex()
     var accumulatedDelay = 0
-    for (i in 0 until rawFrames.size) {
+    for (i in delays.indices) {
       decoder.advance()
-      val delay = rawFrames[i].second
+      // Always decode every frame so GIF disposal/delta compositing stays intact.
+      val frameBitmap = decoder.nextFrame
+      val delay = delays[i]
       accumulatedDelay += delay
-      val isKept = (i % step == 0) || (i == rawFrames.lastIndex && result.isEmpty())
-      if (isKept) {
-        val frameBitmap = decoder.nextFrame
-        if (frameBitmap != null) {
+      val shouldKeep =
+        (i == 0 || accumulatedDelay >= minKeepIntervalMs || (i == delays.lastIndex && result.isEmpty())) &&
+          result.size < options.maxFrames
+      if (frameBitmap != null) {
+        if (shouldKeep) {
           result.add(EncodedFrame(fitToStickerCanvas(frameBitmap), max(16, accumulatedDelay)))
           accumulatedDelay = 0
         }
+        frameBitmap.recycle()
       }
     }
     if (accumulatedDelay > 0 && result.isNotEmpty()) {
@@ -300,18 +353,19 @@ object StickerConverter {
     return result
   }
 
-  private fun extractVideoFrames(videoFile: File): List<EncodedFrame> {
+  private fun extractVideoFrames(videoFile: File, options: ConvertOptions): List<EncodedFrame> {
     val retriever = FFmpegMediaMetadataRetriever()
     val result = mutableListOf<EncodedFrame>()
     try {
       retriever.setDataSource(videoFile.absolutePath)
       val durationStr = retriever.extractMetadata(FFmpegMediaMetadataRetriever.METADATA_KEY_DURATION)
       val rawDurationMs = durationStr?.toLongOrNull()?.takeIf { it > 0L } ?: 3000L
-      val clipDurationMs = min(max(rawDurationMs, 200L), MAX_DURATION_MS)
+      val clipDurationMs = min(max(rawDurationMs, 200L), options.maxDurationMs)
 
-      val stepMs = max(83L, ceil(clipDurationMs.toDouble() / MAX_ANIMATED_FRAMES).toLong())
+      val minFpsStepMs = max(16L, 1000L / options.maxFps)
+      val stepMs = max(minFpsStepMs, ceil(clipDurationMs.toDouble() / options.maxFrames).toLong())
       var tMs = 0L
-      while (tMs < clipDurationMs && result.size < MAX_ANIMATED_FRAMES) {
+      while (tMs < clipDurationMs && result.size < options.maxFrames) {
         val frame = retriever.getFrameAtTime(tMs * 1000L, FFmpegMediaMetadataRetriever.OPTION_CLOSEST)
           ?: retriever.getFrameAtTime(tMs * 1000L, FFmpegMediaMetadataRetriever.OPTION_CLOSEST_SYNC)
         if (frame != null) {
@@ -344,15 +398,33 @@ object StickerConverter {
     val alphaQuality: Int = 80
   )
 
-  private fun encodeAnimatedWebP(context: Context, frames: List<EncodedFrame>, outFile: File) {
-    val attempts = listOf(
-      AnimAttempt(quality = 72f, stride = 1),
-      AnimAttempt(quality = 48f, stride = 1, alphaQuality = 60),
-      AnimAttempt(quality = 28f, stride = 2, alphaQuality = 50),
-      AnimAttempt(quality = 24f, stride = 2, contentSize = 384, alphaQuality = 40),
-      AnimAttempt(quality = 18f, stride = 3, contentSize = 320, alphaQuality = 30),
-      AnimAttempt(quality = 10f, stride = 4, contentSize = 256, alphaQuality = 20)
-    )
+  private fun encodeAnimatedWebP(
+    context: Context,
+    frames: List<EncodedFrame>,
+    outFile: File,
+    priority: String
+  ) {
+    val attempts = if (priority == "quality") {
+      listOf(
+        AnimAttempt(quality = 72f, stride = 1),
+        AnimAttempt(quality = 48f, stride = 1, alphaQuality = 60),
+        AnimAttempt(quality = 35f, stride = 2, alphaQuality = 50),
+        AnimAttempt(quality = 24f, stride = 2, contentSize = 384, alphaQuality = 40),
+        AnimAttempt(quality = 18f, stride = 3, contentSize = 320, alphaQuality = 30),
+        AnimAttempt(quality = 10f, stride = 4, contentSize = 256, alphaQuality = 20)
+      )
+    } else {
+      // Prioritize keeping all frames (stride = 1) by lowering quality/inner scale first.
+      listOf(
+        AnimAttempt(quality = 65f, stride = 1, alphaQuality = 70),
+        AnimAttempt(quality = 40f, stride = 1, alphaQuality = 50),
+        AnimAttempt(quality = 28f, stride = 1, contentSize = 384, alphaQuality = 40),
+        AnimAttempt(quality = 20f, stride = 1, contentSize = 320, alphaQuality = 30),
+        AnimAttempt(quality = 14f, stride = 1, contentSize = 256, alphaQuality = 25),
+        AnimAttempt(quality = 16f, stride = 2, contentSize = 256, alphaQuality = 20),
+        AnimAttempt(quality = 10f, stride = 3, contentSize = 224, alphaQuality = 15)
+      )
+    }
 
     var lastSizeBytes = 0L
     for (attempt in attempts) {

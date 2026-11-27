@@ -3,11 +3,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivitySummaryModal } from '@/components/ActivitySummaryModal';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
 import { Hearts } from '@/components/Hearts';
 import { SkeletonList } from '@/components/SkeletonList';
+import { COUPLE_MEMBERS, COUPLE_NAMES } from '@/lib/couple';
 import { formatDate, toYMD } from '@/lib/dates';
 import { confirmDelete, useList, useMutate, type Movie } from '@/lib/db';
 import { font, radius, useTheme, type ThemeColors } from '@/lib/theme';
@@ -26,6 +28,7 @@ const MovieRow = memo(function MovieRow({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isWatched = item.watched_on !== null;
+  const addedBy = item.created_by ? COUPLE_NAMES[item.created_by] : null;
   const reviews = item.movie_reviews ?? [];
   const avg =
     reviews.length > 0
@@ -42,12 +45,15 @@ const MovieRow = memo(function MovieRow({
         )
       }
       onLongPress={() => onDelete(item)}
+      style={styles.movieCard}
     >
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
           <Text style={styles.title}>{item.title}</Text>
           {item.watched_on ? (
             <Text style={styles.date}>{formatDate(item.watched_on)}</Text>
+          ) : addedBy ? (
+            <Text style={styles.date}>Recomendada por {addedBy}</Text>
           ) : null}
         </View>
         {!isWatched ? (
@@ -57,7 +63,7 @@ const MovieRow = memo(function MovieRow({
             accessibilityLabel={`Eliminar ${item.title}`}
             style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
           >
-            <Ionicons name="trash-outline" size={16} color={colors.text} />
+            <Ionicons name="close" size={16} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -81,7 +87,6 @@ const MovieRow = memo(function MovieRow({
             onPress={() => onMarkWatched(item.id)}
             style={({ pressed }) => [styles.watchPill, pressed && styles.pressed]}
           >
-            <Ionicons name="checkmark-circle-outline" size={16} color={colors.text} />
             <Text style={styles.watchPillText}>Marcar como vista</Text>
           </Pressable>
         </View>
@@ -95,19 +100,43 @@ export default function MoviesScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [tab, setTab] = useState<TabKey>('watched');
   const [markingId, setMarkingId] = useState<number | null>(null);
+  const [summaryVisible, setSummaryVisible] = useState(false);
 
   const { data, isRefetching, refetch, isPending } = useList('movies');
   const remove = useMutate('movies', 'delete');
   const updateMovie = useMutate('movies', 'update');
 
-  const { watchedCount, wishlistCount, items } = useMemo(() => {
+  const { watchedCount, wishlistCount, items, watchedDates, memberRatings } = useMemo(() => {
     const all = data ?? [];
     const watched = all.filter((m) => m.watched_on !== null);
     const wishlist = all.filter((m) => m.watched_on === null);
+    const dates = watched.map((m) => m.watched_on as string);
+
+    const ratings = COUPLE_MEMBERS.map((member) => {
+      let sum = 0;
+      let count = 0;
+      for (const movie of all) {
+        for (const review of movie.movie_reviews ?? []) {
+          if (review.user_id === member.id) {
+            sum += review.rating;
+            count += 1;
+          }
+        }
+      }
+      return {
+        id: member.id,
+        name: member.name,
+        count,
+        avg: count > 0 ? sum / count : 0,
+      };
+    });
+
     return {
       watchedCount: watched.length,
       wishlistCount: wishlist.length,
       items: tab === 'watched' ? watched : wishlist,
+      watchedDates: dates,
+      memberRatings: ratings,
     };
   }, [data, tab]);
 
@@ -133,7 +162,10 @@ export default function MoviesScreen() {
     <View style={styles.screen}>
       {!isPending ? (
         <View style={styles.topSection}>
-          <Card style={styles.summaryCard}>
+          <Card
+            onPress={watchedCount > 0 ? () => setSummaryVisible(true) : undefined}
+            style={styles.summaryCard}
+          >
             <View style={styles.summaryIcon}>
               <Ionicons name="film" size={26} color={colors.primary} />
             </View>
@@ -150,6 +182,9 @@ export default function MoviesScreen() {
                 <Text style={styles.statLabel}>Por ver</Text>
               </View>
             </View>
+            {watchedCount > 0 ? (
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            ) : null}
           </Card>
         </View>
       ) : null}
@@ -223,6 +258,42 @@ export default function MoviesScreen() {
           })
         }
       />
+
+      <ActivitySummaryModal
+        visible={summaryVisible}
+        onClose={() => setSummaryVisible(false)}
+        title="Resumen de películas"
+        icon="film"
+        dates={watchedDates}
+        monthsTitle="Meses con más películas"
+        singularLabel="película"
+        pluralLabel="películas"
+      >
+        <View style={styles.ratingsSection}>
+          <Text style={styles.ratingsSectionTitle}>Calificación promedio</Text>
+          <View style={styles.ratingsCard}>
+            {memberRatings.map((member, idx) => (
+              <View
+                key={member.id}
+                style={[styles.ratingMemberRow, idx > 0 && styles.ratingMemberBorder]}
+              >
+                <Text style={styles.ratingMemberName}>{member.name}</Text>
+                {member.count > 0 ? (
+                  <View style={styles.ratingMemberStats}>
+                    <Hearts value={member.avg} size={13} />
+                    <Text style={styles.ratingMemberAvg}>{member.avg.toFixed(1)}</Text>
+                    <Text style={styles.ratingMemberCount}>
+                      ({member.count} {member.count === 1 ? 'reseña' : 'reseñas'})
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.ratingMemberEmpty}>Sin reseñas</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+      </ActivitySummaryModal>
     </View>
   );
 }
@@ -307,6 +378,10 @@ const createStyles = (colors: ThemeColors) =>
     paddingBottom: 96,
     gap: 12,
   },
+  movieCard: {
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -315,11 +390,11 @@ const createStyles = (colors: ThemeColors) =>
   },
   titleWrap: {
     flex: 1,
-    gap: 2,
+    gap: 6,
   },
   title: {
     fontFamily: font.semibold,
-    fontSize: 16,
+    fontSize: 17,
     color: colors.text,
   },
   date: {
@@ -328,7 +403,7 @@ const createStyles = (colors: ThemeColors) =>
     color: colors.muted,
   },
   footerRow: {
-    marginTop: 10,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -353,8 +428,8 @@ const createStyles = (colors: ThemeColors) =>
     gap: 6,
     backgroundColor: colors.primarySoft,
     borderRadius: radius.pill,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
   },
   watchPillText: {
     fontFamily: font.semibold,
@@ -371,5 +446,54 @@ const createStyles = (colors: ThemeColors) =>
   },
   pressed: {
     opacity: 0.85,
+  },
+  ratingsSection: {
+    gap: 10,
+  },
+  ratingsSectionTitle: {
+    fontFamily: font.semibold,
+    fontSize: 14,
+    color: colors.text,
+  },
+  ratingsCard: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.input,
+    paddingHorizontal: 14,
+  },
+  ratingMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    gap: 8,
+  },
+  ratingMemberBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  ratingMemberName: {
+    fontFamily: font.semibold,
+    fontSize: 13,
+    color: colors.text,
+  },
+  ratingMemberStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ratingMemberAvg: {
+    fontFamily: font.bold,
+    fontSize: 13,
+    color: colors.text,
+  },
+  ratingMemberCount: {
+    fontFamily: font.regular,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  ratingMemberEmpty: {
+    fontFamily: font.regular,
+    fontSize: 12,
+    color: colors.muted,
   },
 });

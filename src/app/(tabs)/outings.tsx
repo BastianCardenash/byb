@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivitySummaryModal } from '@/components/ActivitySummaryModal';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
@@ -35,10 +36,7 @@ const OutingRow = memo(function OutingRow({
       <View style={styles.textCol}>
         <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
         {item.description ? (
-          <>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <Text style={[styles.desc, { color: colors.muted }]}>{item.description}</Text>
-          </>
+          <Text style={[styles.desc, { color: colors.muted }]}>{item.description}</Text>
         ) : null}
       </View>
 
@@ -54,6 +52,7 @@ export default function OutingsScreen() {
   const { colors } = useTheme();
   const { data, isRefetching, refetch, isPending } = useList('outings');
   const remove = useMutate('outings', 'delete');
+  const [summaryVisible, setSummaryVisible] = useState(false);
 
   const handleDelete = useCallback(
     (item: Outing) => {
@@ -62,7 +61,8 @@ export default function OutingsScreen() {
     [remove],
   );
 
-  const outings = data ?? [];
+  const outings = useMemo(() => data ?? [], [data]);
+  const outingDates = useMemo(() => outings.map((o) => o.happened_on), [outings]);
   const count = outings.length;
   const countLabel = count === 1 ? '1 salida' : `${count} salidas`;
   const latestLabel = outings[0]
@@ -73,7 +73,10 @@ export default function OutingsScreen() {
     <View style={styles.screen}>
       {!isPending ? (
         <View style={styles.topSection}>
-          <Card style={styles.summaryCard}>
+          <Card
+            onPress={count > 0 ? () => setSummaryVisible(true) : undefined}
+            style={styles.summaryCard}
+          >
             <View style={[styles.summaryIcon, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name="compass" size={26} color={colors.primary} />
             </View>
@@ -81,6 +84,9 @@ export default function OutingsScreen() {
               <Text style={[styles.summaryCount, { color: colors.text }]}>{countLabel}</Text>
               <Text style={[styles.summarySub, { color: colors.muted }]}>{latestLabel}</Text>
             </View>
+            {count > 0 ? (
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            ) : null}
           </Card>
           {count > 0 ? (
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -118,6 +124,16 @@ export default function OutingsScreen() {
         }
       />
       <Fab onPress={() => router.push({ pathname: '/form', params: { type: 'outing' } })} />
+      <ActivitySummaryModal
+        visible={summaryVisible}
+        onClose={() => setSummaryVisible(false)}
+        title="Resumen de salidas"
+        icon="compass"
+        dates={outingDates}
+        monthsTitle="Meses con más salidas"
+        singularLabel="salida"
+        pluralLabel="salidas"
+      />
     </View>
   );
 }
@@ -181,14 +197,11 @@ const styles = StyleSheet.create({
   },
   textCol: {
     flex: 1,
-    gap: 12,
+    gap: 10,
   },
   title: {
     fontFamily: font.semibold,
     fontSize: 17,
-  },
-  divider: {
-    height: 1,
   },
   desc: {
     fontFamily: font.regular,

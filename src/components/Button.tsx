@@ -71,5 +71,6 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: font.semibold,
     fontSize: 15,
+    textAlign: 'center',
   },
 });
